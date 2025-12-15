@@ -1,0 +1,20 @@
+# Detect Lateral Movement via PsExec
+index=main source=WinEventLog:Security EventCode=7045 
+| search ImagePath="*psexesvc.exe"
+| stats count by Computer, User, ImagePath
+| where count > 0
+| eval severity="high"
+
+# Kerberoasting Detection
+index=main source=WinEventLog:Security EventCode=4769 
+| search TicketEncryption="0x17" 
+| stats dc(Computer) as affected_hosts by Account_Name
+| where affected_hosts > 5
+| rename Account_Name as compromised_account
+
+# DNS Exfiltration Detection  
+index=main source=main::dns 
+| search query_type=A 
+| stats avg(eval(length(query))) as avg_len by client_ip 
+| where avg_len > 100
+| eval risk=case(avg_len>150, "high", avg_len>120, "medium", 1=1, "low")
